@@ -11,7 +11,7 @@ VAE:
 2. we give:
 - prior
 - ε ~ N(0,I)
-- decoder likelihood = p(x|z) - Bernoulli likelihood / Gaussian likelihood (also reconstruction loss formula depends on this)\
+- decoder likelihood = p(x|z) - Bernoulli likelihood -> reconstruction loss: BCE / Gaussian likelihood -> reconstruction loss: MSE
 
 3. training:
 - for every mini batch:
@@ -35,3 +35,9 @@ VAE:
 --- when Posterior collapse ---
 - KL anneling = LOSS = reconstruction loss + β * KL loss, β - on start i small and gradually increase it to 1
 
+
+--- implementation ---
+encoder: flatten, compression
+decoder: decompression
+vae: encoder + sampling z (sampling ε, σ = exp(0.5 * log σ²), reparametryzation trick) + decoder (decoder likelihood)
+train: KL divergence, reconstruction loss, LOSS
