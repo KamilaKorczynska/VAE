@@ -1,0 +1,37 @@
+VAE:
+
+1. we have:
+- q(z|x) = N(μ(x), diag(σ^2(x)) -> encoder outputs: μ and log σ^2(x) (approximation of posterior p(z|x) )
+- z = μ + σ * ε, where σ = exp(0.5 * log σ²(x)) (reparametrization trick)
+- KL divergence = D_KL (q(z|x) || p(z) = 1/2 ∑( exp(log σ²_j) + μ_j² - 1 - log σ²_j ) (for prior p(z) = N(0, I))
+- ELBO = reconstruction quality - KL loss
+- LOSS = - ELBO = reconstruction loss + KL loss
+
+
+2. we give:
+- prior
+- ε ~ N(0,I)
+- decoder likelihood = p(x|z) - Bernoulli likelihood / Gaussian likelihood (also reconstruction loss formula depends on this)\
+
+3. training:
+- for every mini batch:
+    - x -> encoder -> μ and log σ^2(x)
+    - sampling ε ~ N(0,I)
+    - σ = exp(0.5 * log σ²)
+    - z = μ + σ * ε
+    - decoder(z) -> reconstruction / parameters of p(x|z)
+    - reconstruction loss
+    - KL loss
+    - minimalize LOSS
+    - backpropagation
+
+4. for generating (we dont need encoder any more)
+- sampling z ~ priori
+- z -> decoder -> p(x|z)
+- generating x_hat ~ p(x|z)
+
+
+
+--- when Posterior collapse ---
+- KL anneling = LOSS = reconstruction loss + β * KL loss, β - on start i small and gradually increase it to 1
+
