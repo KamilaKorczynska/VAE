@@ -2,6 +2,9 @@
 .idea/
 data/
 src/results/overfit_sanity_check
+src/utils/constants.py
+scripts/wandb
+checkpoints
 __pycache__/
 *.pyc
 *.pth
