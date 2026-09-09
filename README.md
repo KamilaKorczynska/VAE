@@ -1,29 +1,37 @@
 # VAE
 
-This project is my own implementation of a Variational Autoencoder (VAE), created to understand the theory behind probabilistic generative models in practice.
+This project is my own implementation of a Variational Autoencoder (VAE).
 
-The goal is to implement the main VAE components manually and observe how they affect training and generation:
+The goal is to build a working VAE from theory, train it, generate new images and experiment with different setups to see how they affect the output.
 
-* encoder producing `μ` and `log σ²`
-* reparameterization trick
-* decoder likelihood
-* reconstruction loss
-* KL divergence
-* ELBO-based training objective
-* sampling from the prior distribution
+## Tech Stack
+- **Python**
+- **PyTorch**
+- **Matplotlib** 
 
+
+## Dataset
 The model is trained on the Cat Dataset from Kaggle:
-
 https://www.kaggle.com/datasets/crawford/cat-dataset?resource=download
+ - The dataset contains cat images, which are resized (64x64 RGB) and used as unsupervised training data.
 
-The dataset contains cat images, which are resized and used as unsupervised training data. After training, the decoder can be used to generate new cat-like images by sampling latent vectors from the prior distribution.
+## Current Model
+The current baseline VAE uses:
+- an MLP-based Encoder and Decoder,
+- a latent space with Gaussian posterior approximation,
+- the reparameterization trick,
+- Gaussian reconstruction likelihood with squared-error reconstruction loss,
+- KL divergence regularization against a standard normal prior.
 
-## Planned experiments
+## Current Progress
+- [x] The basic skeleton of the model is written.
+- [x] **Overfitting test:** Successful. The model can overfit on a small batch (10 images) of data and the reconstructions of images were almost identical, which proves that the architecture is capable of learning.
 
-* Bernoulli likelihood with BCE loss
-* Gaussian likelihood with MSE loss
-* KL annealing
-* different latent dimensions
-* reconstruction quality comparison
-* sampling from latent space
-* latent interpolation
+
+## Planned Experiments
+I want to see how different factors affect the model's performance and the quality of generated images. I plan to experiment with:
+- **Reconstruction Loss:** MSE vs. BCE
+- **Latent Space:** Changing its size
+- **Architecture:** Modifying the number and sizes of layers in the Encoder and Decoder
+- **KL Annealing:** Training with and without it
+- **Normalization:** Checking if it helps the training process

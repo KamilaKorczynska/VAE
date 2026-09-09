@@ -1,6 +1,7 @@
 .venv/
 .idea/
 data/
+src/results/overfit_sanity_check
 __pycache__/
 *.pyc
 *.pth

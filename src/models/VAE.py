@@ -17,6 +17,6 @@ class VAE(nn.Module):
         std = torch.exp(0.5 * logvar)   #std = standard devation
         epsilon = torch.randn_like(std)
         z = mu + std * epsilon
-        ppb = self.decoder(z)
+        x_hat = self.decoder(z)
 
-        return mu, logvar, ppb
+        return mu, logvar, x_hat

@@ -24,6 +24,6 @@ def gaussian_likelihood(pos_weight):
 
 def calculate_reconstruction_loss(x_hat, x, criterion):
     loss = criterion(x_hat, x)
-    loss = loss.sum(dim=(1,2,3))
+    loss = 0.5 * loss.sum(dim=(1,2,3))
     loss = loss.mean()
     return loss

@@ -10,15 +10,18 @@ from pathlib import Path
 def train_epoch(model, loader, optimizer, criterion, device):
     model.train()
     total_loss = 0.0
+    total_reconstruction_loss = 0.0
+    total_kl_loss = 0.0
     total_samples = 0
+
 
     for images in loader:
         images = images.to(device)
 
         optimizer.zero_grad()
-        mu, logvar, ppb = model(images)
+        mu, logvar, x_hat = model(images)
 
-        reconstruction_loss = calculate_reconstruction_loss(ppb, images, criterion)
+        reconstruction_loss = calculate_reconstruction_loss(x_hat, images, criterion)
 
         kl_loss = kl_divergence(logvar, mu)
         vae_loss = reconstruction_loss + kl_loss
@@ -27,9 +30,11 @@ def train_epoch(model, loader, optimizer, criterion, device):
         optimizer.step()
 
         total_loss += vae_loss.item() * images.size(0)
+        total_reconstruction_loss += reconstruction_loss.item() * images.size(0)
+        total_kl_loss += kl_loss.item() * images.size(0)
         total_samples += images.size(0)
 
-    return total_loss / total_samples
+    return total_loss / total_samples, total_reconstruction_loss / total_samples, total_kl_loss / total_samples
 
 @torch.no_grad()
 def evaluate(model, loader, criterion, device):
@@ -99,17 +104,21 @@ def main():
     vae = VAE(input_shape, latent_dim)
     vae = vae.to(device)
 
-    criterion = nn.BCEWithLogitsLoss(reduction='none')
+    criterion = nn.MSELoss(reduction='none')
     optimizer = torch.optim.Adam(vae.parameters(), lr=0.001)
 
     train_losses = []
+    reconstruction_losses = []
+    kl_losses = []
     val_losses = []
 
     for epoch in range(epochs):
-        train_loss = train_epoch(vae, train_dataloader, optimizer, criterion, device)
+        train_loss, reconstruction_loss, kl_loss = train_epoch(vae, train_dataloader, optimizer, criterion, device)
         val_loss = evaluate(vae, val_dataloader, criterion, device)
 
         train_losses.append(train_loss)
+        reconstruction_losses.append(reconstruction_loss)
+        kl_losses.append(kl_loss)
         val_losses.append(val_loss)
 
         print(

@@ -11,7 +11,7 @@ VAE:
 2. we give:
 - prior
 - ε ~ N(0,I)
-- decoder likelihood = p(x|z) - Bernoulli likelihood -> reconstruction loss: BCE / Gaussian likelihood -> reconstruction loss: MSE
+- decoder likelihood = p(x|z) - Gaussian likelihood -> reconstruction loss: MSE (RGB pixels)
 
 3. training:
 - for every mini batch:
@@ -38,6 +38,6 @@ VAE:
 
 --- implementation ---
 encoder: flatten, compression
-decoder: decompression
+decoder: decompression + sigmoid
 vae: encoder + sampling z (sampling ε, σ = exp(0.5 * log σ²), reparametryzation trick) + decoder (decoder likelihood)
 train: KL divergence, reconstruction loss, LOSS

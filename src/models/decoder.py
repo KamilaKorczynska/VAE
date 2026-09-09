@@ -11,11 +11,12 @@ class Decoder(nn.Module):
             nn.ReLU(),
             nn.Linear(256, 1024),
             nn.ReLU(),
-            nn.Linear(1024, flatten_output_dim)
+            nn.Linear(1024, flatten_output_dim),
+            nn.Sigmoid()
         )
 
     def forward(self, z):
-        d = self.decoder(z)
-        d = d.reshape(z.size(0), *self.input_shape)
+        x_hat = self.decoder(z)
+        x_hat = x_hat.reshape(z.size(0), *self.input_shape)
 
-        return d
+        return x_hat
