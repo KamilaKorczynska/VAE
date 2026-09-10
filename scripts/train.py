@@ -7,7 +7,6 @@ from src.models.VAE import VAE
 from pathlib import Path
 import wandb
 from src.utils.constants import WANDB_ENTITY, WANDB_PROJECT
-from src.utils.checkpoints import best_loss_last_epoch_checkpoint
 
 
 def train_epoch(model, loader, optimizer, criterion, device):
@@ -64,26 +63,23 @@ def evaluate(model, loader, criterion, device):
 
     return total_loss / total_samples, total_reconstruction_loss / total_samples, total_kl_loss / total_samples
 
-
-def main():
-    seed = 42
-    batch_size = 64
-    input_shape = (3, 64, 64)
-    latent_dim = 64
-    epochs = 10
-    learning_rate = 0.001
-
+def train_model(seed=42, batch_size=64, image_size=64, latent_dim=64, epochs=10, learning_rate=0.001, data_dir=None, checkpoint_path=None):
+    input_shape = (3, image_size, image_size)
     torch.manual_seed(seed)
+
+    project_root = Path(__file__).resolve().parent.parent
+    if data_dir is None:
+        data_dir = project_root / "data" / "Cats"
+    if checkpoint_path is None:
+        checkpoint_path = project_root / "checkpoints"
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    PROJECT_ROOT = Path(__file__).resolve().parent.parent
-    DATA_DIR = PROJECT_ROOT / "data" / "Cats"
-
-    transforms = transform(image_size=64)
+    transforms = transform(image_size=image_size)
     g = torch.Generator().manual_seed(seed)
 
     full_dataset = CatDataset(
-        image_dir=DATA_DIR,
+        image_dir=data_dir,
         transform=transforms
     )
     train_dataset, remaining_dataset = random_split(full_dataset, [0.7, 0.3], generator=g)
@@ -93,7 +89,7 @@ def main():
         train_dataset,
         batch_size=batch_size,
         shuffle=True,
-        generator = g
+        generator=g
     )
     val_dataloader = DataLoader(
         val_dataset,
@@ -129,19 +125,25 @@ def main():
         entity=WANDB_ENTITY,
         project=WANDB_PROJECT,
         config={
+            "seed": seed,
+            "batch_size": batch_size,
+            "image_size": image_size,
+            "latent_dim": latent_dim,
             "learning_rate": learning_rate,
             "architecture": "basic",
             "dataset": "Cats",
-            "epochs": epochs
+            "epochs": epochs,
+            "reconstruction_loss": "MSE"
         },
     )
 
-
-    checkpoint_path = PROJECT_ROOT / "checkpoints"
-    best_loss, last_epoch = best_loss_last_epoch_checkpoint(checkpoint_path)
+    best_loss = float("inf")
+    checkpoint_path = checkpoint_path / f"mse_latent{latent_dim}_lr{learning_rate}_{run.id}"
+    checkpoint_path.mkdir(parents=True, exist_ok=True)
 
     for epoch in range(epochs):
-        train_loss, train_reconstruction_loss, train_kl_loss = train_epoch(vae, train_dataloader, optimizer, criterion, device)
+        train_loss, train_reconstruction_loss, train_kl_loss = train_epoch(vae, train_dataloader, optimizer, criterion,
+                                                                           device)
         val_loss, val_reconstruction_loss, val_kl_loss = evaluate(vae, val_dataloader, criterion, device)
 
         train_losses["loss"].append(train_loss)
@@ -153,7 +155,7 @@ def main():
 
         if val_loss < best_loss:
             torch.save({
-                "epoch": epoch +1,
+                "epoch": epoch + 1,
                 "model_state_dict": vae.state_dict(),
                 "optimizer_state_dict": optimizer.state_dict(),
                 "val_loss": val_loss
@@ -167,7 +169,7 @@ def main():
         )
 
         run.log({
-            "epoch": epoch +1,
+            "epoch": epoch + 1,
             "train_loss": train_loss,
             "train_reconstruction_loss": train_reconstruction_loss,
             "train_kl_loss": train_kl_loss,
@@ -184,6 +186,22 @@ def main():
     }, checkpoint_path / "last_checkpoint.pth")
 
     run.finish()
+
+    return vae, train_losses, val_losses
+
+def main():
+    seed = 42
+    batch_size = 64
+    image_size = 64
+    latent_dim = 64
+    epochs = 10
+    learning_rate = 0.001
+
+    root = Path(__file__).resolve().parent.parent
+    data_dir = root / "data" / "Cats"
+    checkpoint_path = root / "checkpoints"
+
+    vae, train_losses, val_losses = train_model(seed, batch_size, image_size, latent_dim, epochs, learning_rate, data_dir, checkpoint_path)
 
 
 
