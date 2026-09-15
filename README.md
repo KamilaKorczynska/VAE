@@ -15,18 +15,23 @@ The model is trained on the Cat Dataset from Kaggle:
 https://www.kaggle.com/datasets/crawford/cat-dataset?resource=download
  - The dataset contains cat images, which are resized (64x64 RGB) and used as unsupervised training data.
 
-## Current Model
-The current baseline VAE uses:
+## Baseline Model - MLP VAE
+The first baseline uses a fully connected MLP-based encoder and decoder.
+The model uses:
 - an MLP-based Encoder and Decoder,
 - a latent space with Gaussian posterior approximation,
 - the reparameterization trick,
 - Gaussian reconstruction likelihood with squared-error reconstruction loss,
-- KL divergence regularization against a standard normal prior.
+- KL divergence regularization
 
 ## Current Progress
 - [x] The basic skeleton of the model is written.
 - [x] **Overfitting test:** Successful. The model can overfit on a small batch (10 images) of data and the reconstructions of images were almost identical, which proves that the architecture is capable of learning.
-
+- [x] **Training:** The MLP baseline was trained for 200 epochs.
+- [x] **Reconstruction analysis:** The model captures global image properties such as background color, brightness and coarse structure, but reconstructions are heavily blurred and often do not preserve recognizable cat features.
+- [x] **Generation:** Some samples generated from the prior show cat-like structure, while others mostly resemble blurred backgrounds.
+- [x] **Observation:** The MLP-based architecture may be limiting image quality because it does not explicitly capture spatial relationships between neighboring pixels.
+- [ ] **Next step:** Implement and evaluate a CNN-based VAE.
 
 ## Planned Experiments
 I want to see how different factors affect the model's performance and the quality of generated images. I plan to experiment with:
