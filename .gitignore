@@ -1,7 +1,7 @@
 .venv/
 .idea/
 data/
-src/results/overfit_sanity_check
+results/overfit_sanity_check
 scripts/wandb
 checkpoints
 __pycache__/
