@@ -1,10 +1,10 @@
 import torch.nn as nn
 
 import torch
-from src.models.encoder import Encoder
-from src.models.decoder import Decoder
+from src.models.mlp.encoder import Encoder
+from src.models.mlp.decoder import Decoder
 
-class VAE(nn.Module):
+class MLP_VAE(nn.Module):
     def __init__(self, input_shape, latent_dim):
         super().__init__()
 

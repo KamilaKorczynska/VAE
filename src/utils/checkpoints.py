@@ -1,15 +1,20 @@
 import torch
-from src.models.VAE import VAE
+from src.models.factory import create_model
 import torch.nn as nn
 
 
-def load_checkpoint(checkpoint_path, image_size, latent_dim, learning_rate):
+def load_checkpoint(checkpoint_path):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     checkpoint = torch.load(checkpoint_path, map_location=device)
-    input_shape = (3, image_size, image_size)
 
-    vae = VAE(
+    model_type = checkpoint["model_type"]
+    input_shape = checkpoint["input_shape"]
+    latent_dim = checkpoint["latent_dim"]
+    learning_rate = checkpoint["learning_rate"]
+
+    vae = create_model(
+        model_type=model_type,
         input_shape=input_shape,
         latent_dim=latent_dim
     ).to(device)

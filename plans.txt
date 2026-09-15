@@ -7,7 +7,6 @@ VAE:
 - ELBO = reconstruction quality - KL loss
 - LOSS = - ELBO = reconstruction loss + KL loss
 
-
 2. we give:
 - prior
 - ε ~ N(0,I)
@@ -30,11 +29,8 @@ VAE:
 - z -> decoder -> p(x|z)
 - generating x_hat ~ p(x|z)
 
-
-
 --- when Posterior collapse ---
 - KL anneling = LOSS = reconstruction loss + β * KL loss, β - on start i small and gradually increase it to 1
-
 
 --- implementation ---
 encoder: flatten, compression

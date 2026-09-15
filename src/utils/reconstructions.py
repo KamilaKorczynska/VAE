@@ -1,5 +1,6 @@
 import torch
 from torchvision.transforms.functional import to_pil_image
+from pathlib import Path
 
 @torch.no_grad()
 def get_reconstructions(model, loader, device):
@@ -13,7 +14,7 @@ def get_reconstructions(model, loader, device):
 
 
 @torch.no_grad()
-def analyze_reconstrustions(model, loader, device, criterion):
+def analyze_reconstructions(model, loader, device, criterion):
     model.eval()
     results = []
 
@@ -38,6 +39,9 @@ def analyze_reconstrustions(model, loader, device, criterion):
 
 def save_reconstructions(images, x_hats, path="."):
     counter = 1
+    path = Path(path)
+    path.mkdir(parents=True, exist_ok=True)
+
     for image, x_hat in zip(images, x_hats):
         img = to_pil_image(image)
         img.save(f"{path}/x{counter}.png")

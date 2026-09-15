@@ -3,7 +3,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, random_split
 from src.datasets.Cat_dataset import CatDataset, transform
 from src.losses.loss import kl_divergence, calculate_reconstruction_loss
-from src.models.VAE import VAE
+from src.models.factory import create_model
 from pathlib import Path
 import wandb
 from src.utils.constants import WANDB_ENTITY, WANDB_PROJECT
@@ -63,7 +63,7 @@ def evaluate(model, loader, criterion, device):
 
     return total_loss / total_samples, total_reconstruction_loss / total_samples, total_kl_loss / total_samples
 
-def train_model(seed=42, batch_size=64, image_size=64, latent_dim=64, epochs=10, learning_rate=0.001, data_dir=None, checkpoint_path=None):
+def train_model(model_type="mlp", seed=42, batch_size=64, image_size=64, latent_dim=64, epochs=10, learning_rate=0.001, data_dir=None, checkpoint_path=None):
     input_shape = (3, image_size, image_size)
     torch.manual_seed(seed)
 
@@ -75,6 +75,7 @@ def train_model(seed=42, batch_size=64, image_size=64, latent_dim=64, epochs=10,
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    #dataloaders
     transforms = transform(image_size=image_size)
     g = torch.Generator().manual_seed(seed)
 
@@ -104,11 +105,13 @@ def train_model(seed=42, batch_size=64, image_size=64, latent_dim=64, epochs=10,
         generator=g
     )
 
-    vae = VAE(input_shape, latent_dim)
+    #model
+    vae = create_model(model_type, input_shape, latent_dim)
     vae = vae.to(device)
 
     criterion = nn.MSELoss(reduction='none')
     optimizer = torch.optim.Adam(vae.parameters(), lr=learning_rate)
+
 
     train_losses = {
         "reconstruction_loss": [],
@@ -130,7 +133,7 @@ def train_model(seed=42, batch_size=64, image_size=64, latent_dim=64, epochs=10,
             "image_size": image_size,
             "latent_dim": latent_dim,
             "learning_rate": learning_rate,
-            "architecture": "basic",
+            "architecture": model_type,
             "dataset": "Cats",
             "epochs": epochs,
             "reconstruction_loss": "MSE"
@@ -138,7 +141,7 @@ def train_model(seed=42, batch_size=64, image_size=64, latent_dim=64, epochs=10,
     )
 
     best_loss = float("inf")
-    checkpoint_path = checkpoint_path / f"mse_epoch{epochs}_latent{latent_dim}_lr{learning_rate}_{run.id}"
+    checkpoint_path = checkpoint_path /  f"{model_type}_mse_epoch{epochs}_latent{latent_dim}_lr{learning_rate}_{run.id}"
     checkpoint_path.mkdir(parents=True, exist_ok=True)
 
     for epoch in range(epochs):
@@ -156,6 +159,11 @@ def train_model(seed=42, batch_size=64, image_size=64, latent_dim=64, epochs=10,
         if val_loss < best_loss:
             torch.save({
                 "epoch": epoch + 1,
+                "model_type": model_type,
+                "input_shape": input_shape,
+                "latent_dim": latent_dim,
+                "learning_rate": learning_rate,
+
                 "model_state_dict": vae.state_dict(),
                 "optimizer_state_dict": optimizer.state_dict(),
                 "val_loss": val_loss
@@ -179,7 +187,12 @@ def train_model(seed=42, batch_size=64, image_size=64, latent_dim=64, epochs=10,
         })
 
     torch.save({
-        "epoch": epochs,
+        "epoch": epoch + 1,
+        "model_type": model_type,
+        "input_shape": input_shape,
+        "latent_dim": latent_dim,
+        "learning_rate": learning_rate,
+
         "model_state_dict": vae.state_dict(),
         "optimizer_state_dict": optimizer.state_dict(),
         "val_loss": val_losses["loss"][-1]
@@ -190,18 +203,19 @@ def train_model(seed=42, batch_size=64, image_size=64, latent_dim=64, epochs=10,
     return vae, train_losses, val_losses
 
 def main():
+    model_type = "mlp"
     seed = 42
     batch_size = 64
     image_size = 64
     latent_dim = 64
-    epochs = 10
+    epochs = 1
     learning_rate = 0.001
 
     root = Path(__file__).resolve().parent.parent
     data_dir = root / "data" / "Cats"
     checkpoint_path = root / "checkpoints"
 
-    vae, train_losses, val_losses = train_model(seed, batch_size, image_size, latent_dim, epochs, learning_rate, data_dir, checkpoint_path)
+    vae, train_losses, val_losses = train_model(model_type, seed, batch_size, image_size, latent_dim, epochs, learning_rate, data_dir, checkpoint_path)
 
 
 
