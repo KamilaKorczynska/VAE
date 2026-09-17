@@ -9,7 +9,7 @@ import wandb
 from src.utils.constants import WANDB_ENTITY, WANDB_PROJECT
 
 
-def train_epoch(model, loader, optimizer, criterion, device):
+def train_epoch(model, loader, optimizer, criterion, device, beta=1):
     model.train()
     total_loss = 0.0
     total_reconstruction_loss = 0.0
@@ -26,7 +26,7 @@ def train_epoch(model, loader, optimizer, criterion, device):
         reconstruction_loss = calculate_reconstruction_loss(x_hat, images, criterion)
 
         kl_loss = kl_divergence(logvar, mu)
-        vae_loss = reconstruction_loss + kl_loss
+        vae_loss = reconstruction_loss + (beta * kl_loss)
 
         vae_loss.backward()
         optimizer.step()
@@ -39,7 +39,7 @@ def train_epoch(model, loader, optimizer, criterion, device):
     return total_loss / total_samples, total_reconstruction_loss / total_samples, total_kl_loss / total_samples
 
 @torch.no_grad()
-def evaluate(model, loader, criterion, device):
+def evaluate(model, loader, criterion, device, beta=1):
     model.eval()
     total_loss = 0.0
     total_reconstruction_loss = 0.0
@@ -54,7 +54,7 @@ def evaluate(model, loader, criterion, device):
         reconstruction_loss = calculate_reconstruction_loss(x_hat, images, criterion)
 
         kl_loss = kl_divergence(logvar, mu)
-        vae_loss = reconstruction_loss + kl_loss
+        vae_loss = reconstruction_loss + (beta * kl_loss)
 
         total_loss += vae_loss.item() * images.size(0)
         total_reconstruction_loss += reconstruction_loss.item() * images.size(0)
@@ -63,7 +63,7 @@ def evaluate(model, loader, criterion, device):
 
     return total_loss / total_samples, total_reconstruction_loss / total_samples, total_kl_loss / total_samples
 
-def train_model(model_type="mlp", seed=42, batch_size=64, image_size=64, latent_dim=64, epochs=10, learning_rate=0.001, data_dir=None, checkpoint_path=None):
+def train_model(model_type="mlp", seed=42, batch_size=64, image_size=64, latent_dim=64, epochs=10, learning_rate=0.001, data_dir=None, checkpoint_path=None, beta=1):
     input_shape = (3, image_size, image_size)
     torch.manual_seed(seed)
 
@@ -133,6 +133,7 @@ def train_model(model_type="mlp", seed=42, batch_size=64, image_size=64, latent_
             "image_size": image_size,
             "latent_dim": latent_dim,
             "learning_rate": learning_rate,
+            "beta": beta,
             "architecture": model_type,
             "dataset": "Cats",
             "epochs": epochs,
@@ -145,9 +146,8 @@ def train_model(model_type="mlp", seed=42, batch_size=64, image_size=64, latent_
     checkpoint_path.mkdir(parents=True, exist_ok=True)
 
     for epoch in range(epochs):
-        train_loss, train_reconstruction_loss, train_kl_loss = train_epoch(vae, train_dataloader, optimizer, criterion,
-                                                                           device)
-        val_loss, val_reconstruction_loss, val_kl_loss = evaluate(vae, val_dataloader, criterion, device)
+        train_loss, train_reconstruction_loss, train_kl_loss = train_epoch(vae, train_dataloader, optimizer, criterion, device, beta)
+        val_loss, val_reconstruction_loss, val_kl_loss = evaluate(vae, val_dataloader, criterion, device, beta)
 
         train_losses["loss"].append(train_loss)
         train_losses["reconstruction_loss"].append(train_reconstruction_loss)
@@ -163,6 +163,7 @@ def train_model(model_type="mlp", seed=42, batch_size=64, image_size=64, latent_
                 "input_shape": input_shape,
                 "latent_dim": latent_dim,
                 "learning_rate": learning_rate,
+                "beta": beta,
 
                 "model_state_dict": vae.state_dict(),
                 "optimizer_state_dict": optimizer.state_dict(),
@@ -192,6 +193,7 @@ def train_model(model_type="mlp", seed=42, batch_size=64, image_size=64, latent_
         "input_shape": input_shape,
         "latent_dim": latent_dim,
         "learning_rate": learning_rate,
+        "beta": beta,
 
         "model_state_dict": vae.state_dict(),
         "optimizer_state_dict": optimizer.state_dict(),
@@ -204,6 +206,7 @@ def train_model(model_type="mlp", seed=42, batch_size=64, image_size=64, latent_
 
 def main():
     model_type = "cnn_vector"
+    beta = 0.5
     seed = 42
     batch_size = 64
     image_size = 64
@@ -215,7 +218,7 @@ def main():
     data_dir = root / "data" / "Cats"
     checkpoint_path = root / "checkpoints"
 
-    vae, train_losses, val_losses = train_model(model_type, seed, batch_size, image_size, latent_dim, epochs, learning_rate, data_dir, checkpoint_path)
+    vae, train_losses, val_losses = train_model(model_type, seed, batch_size, image_size, latent_dim, epochs, learning_rate, data_dir, checkpoint_path, beta)
 
 
 

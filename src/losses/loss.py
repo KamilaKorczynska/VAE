@@ -2,8 +2,8 @@ import torch
 
 
 
-def vae_loss(rec_loss, kl_loss):
-    return rec_loss + kl_loss
+def vae_loss(rec_loss, kl_loss, beta=1):
+    return rec_loss + (beta * kl_loss)
 
 def kl_divergence(logvar, mu):
     kl = 0.5 * ( torch.exp(logvar) + mu**2 - 1 - logvar)

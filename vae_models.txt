@@ -8,3 +8,14 @@ Batch size: 64
 Max epochs: 200
 Best validation epoch: 40
 Best validation loss: 210.73768657457836
+
+Model: CNN VAE:
+Image size: 64x64 RGB
+Latent dim: 64
+Reconstruction: Gaussian / squared error
+Optimizer: Adam
+LR: 0.001
+Batch size: 64
+Max epochs: 100
+Best validation epoch: 39
+Best validation loss: 149.5991879107556
