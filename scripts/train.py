@@ -142,7 +142,7 @@ def train_model(model_type="mlp", seed=42, batch_size=64, image_size=64, latent_
     )
 
     best_loss = float("inf")
-    checkpoint_path = checkpoint_path /  f"{model_type}_mse_epoch{epochs}_latent{latent_dim}_lr{learning_rate}_{run.id}"
+    checkpoint_path = checkpoint_path /  f"{model_type}_mse_epoch{epochs}_latent{latent_dim}_lr{learning_rate}_beta{beta}_{run.id}"
     checkpoint_path.mkdir(parents=True, exist_ok=True)
 
     for epoch in range(epochs):
