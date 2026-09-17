@@ -203,12 +203,12 @@ def train_model(model_type="mlp", seed=42, batch_size=64, image_size=64, latent_
     return vae, train_losses, val_losses
 
 def main():
-    model_type = "mlp"
+    model_type = "cnn_vector"
     seed = 42
     batch_size = 64
     image_size = 64
     latent_dim = 64
-    epochs = 1
+    epochs = 10
     learning_rate = 0.001
 
     root = Path(__file__).resolve().parent.parent

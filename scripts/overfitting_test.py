@@ -12,7 +12,7 @@ from src.utils.plots import loss_plot
 def main():
     seed = 42
     torch.manual_seed(seed)
-    model_type = "mlp"
+    model_type = "cnn_vector"
     batch_size = 64
     input_shape = (3, 64, 64)
     latent_dim = 64
@@ -62,7 +62,7 @@ def main():
         )
 
     images, x_hats = get_reconstructions(vae, train_dataloader, device)
-    save_reconstructions(images, x_hats, PROJECT_ROOT / "results" / "overfitting_test")
+    save_reconstructions(images, x_hats, PROJECT_ROOT / "results" / "overfitting_test_cnn_vector")
 
     loss_plot(reconstruction_losses, kl_losses, train_losses)
 
