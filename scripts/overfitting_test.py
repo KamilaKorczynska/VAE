@@ -12,10 +12,10 @@ from src.utils.plots import loss_plot
 def main():
     seed = 42
     torch.manual_seed(seed)
-    model_type = "cnn_vector"
+    model_type = "cnn_spatial"
     batch_size = 64
     input_shape = (3, 64, 64)
-    latent_dim = 64
+    latent_dim = 128
     epochs = 500
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -62,7 +62,7 @@ def main():
         )
 
     images, x_hats = get_reconstructions(vae, train_dataloader, device)
-    save_reconstructions(images, x_hats, PROJECT_ROOT / "results" / "overfitting_test_cnn_vector")
+    save_reconstructions(images, x_hats, PROJECT_ROOT / "results" / "overfitting_test_cnn_spatial_latent128")
 
     loss_plot(reconstruction_losses, kl_losses, train_losses)
 

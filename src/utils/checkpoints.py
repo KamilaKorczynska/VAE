@@ -30,3 +30,26 @@ def load_checkpoint(checkpoint_path):
     return vae, optimizer, criterion, epoch, val_loss
 
 
+def old_load_checkpoint(checkpoint_path, image_size, latent_dim, learning_rate, model_type):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    checkpoint = torch.load(checkpoint_path, map_location=device)
+    input_shape = (3, image_size, image_size)
+
+    vae = create_model(
+        model_type=model_type,
+        input_shape=input_shape,
+        latent_dim=latent_dim
+    ).to(device)
+    vae.load_state_dict(checkpoint["model_state_dict"])
+
+    optimizer = torch.optim.Adam(vae.parameters(), lr=learning_rate)
+    optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+
+    epoch = checkpoint["epoch"]
+    val_loss = checkpoint["val_loss"]
+    criterion = nn.MSELoss(reduction='none')
+
+    return vae, optimizer, criterion, epoch, val_loss
+
+
