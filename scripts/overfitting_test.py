@@ -6,7 +6,7 @@ from src.models.factory import create_model
 from pathlib import Path
 from torch.utils.data import Subset
 from scripts.train import train_epoch
-from src.utils.reconstructions import get_reconstructions, save_reconstructions
+from src.utils.reconstructions import get_reconstructions, save_reconstructions, analyze_reconstructions
 from src.utils.plots import loss_plot
 
 def main():
@@ -50,7 +50,7 @@ def main():
     reconstruction_losses = []
     kl_losses = []
     for epoch in range(epochs):
-        train_loss, reconstruction_loss, kl_loss = train_epoch(vae, train_dataloader, optimizer, criterion, device)
+        train_loss, reconstruction_loss, kl_loss = train_epoch(vae, train_dataloader, optimizer, criterion, device, beta=0)
 
         train_losses.append(train_loss)
         reconstruction_losses.append(reconstruction_loss)
@@ -61,10 +61,14 @@ def main():
             f"Train: {train_loss:.4f} | "
         )
 
-    images, x_hats = get_reconstructions(vae, train_dataloader, device)
-    save_reconstructions(images, x_hats, PROJECT_ROOT / "results" / "overfitting_test_cnn_spatial_latent128")
+    #images, x_hats = get_reconstructions(vae, train_dataloader, device)
+    results = analyze_reconstructions(vae, train_dataloader, device, criterion)
+    images = torch.stack([result["image"] for result in results])
+    x_hats = torch.stack([result["x_hat"] for result in results])
+    save_reconstructions(images, x_hats, PROJECT_ROOT / "results" / "overfitting_test_cnn_spatial_8")
 
     loss_plot(reconstruction_losses, kl_losses, train_losses)
+
 
 if __name__ == "__main__":
     main()

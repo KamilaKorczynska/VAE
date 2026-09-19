@@ -218,7 +218,7 @@ def main():
     data_dir = root / "data" / "Cats"
     checkpoint_path = root / "checkpoints"
 
-    vae, train_losses, val_losses = train_model(model_type, seed, batch_size, image_size, latent_dim, epochs, learning_rate, data_dir, checkpoint_path, beta)
+    vae, train_losses, val_losses = train_model(model_type, seed, batch_size, image_size, latent_dim, epochs, learning_rate, data_dir, checkpoint_path, beta=1)
 
 
 
