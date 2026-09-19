@@ -9,7 +9,11 @@ from PIL import Image
 class CatDataset(Dataset):
     def __init__(self, image_dir, transform=None):
         self.image_dir = image_dir
-        self.image_paths = sorted(Path(image_dir).glob("*.jpg"))
+        self.image_paths = sorted(
+            list(Path(image_dir).glob("*.jpg")) +
+            list(Path(image_dir).glob("*.jpeg")) +
+            list(Path(image_dir).glob("*.png"))
+        )
         self.transform = transform
 
 
