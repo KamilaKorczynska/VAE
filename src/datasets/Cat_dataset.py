@@ -7,13 +7,8 @@ from PIL import Image
 
 
 class CatDataset(Dataset):
-    def __init__(self, image_dir, transform=None):
-        self.image_dir = image_dir
-        self.image_paths = sorted(
-            list(Path(image_dir).glob("*.jpg")) +
-            list(Path(image_dir).glob("*.jpeg")) +
-            list(Path(image_dir).glob("*.png"))
-        )
+    def __init__(self, image_paths, transform=None):
+        self.image_paths = image_paths
         self.transform = transform
 
 

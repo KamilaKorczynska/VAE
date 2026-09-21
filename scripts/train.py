@@ -7,6 +7,7 @@ from src.models.factory import create_model
 from pathlib import Path
 import wandb
 from src.utils.constants import WANDB_ENTITY, WANDB_PROJECT
+from src.utils.Dinov2.split_dataset import load_and_split_groups
 
 
 def train_epoch(model, loader, optimizer, criterion, device, beta=1):
@@ -63,7 +64,7 @@ def evaluate(model, loader, criterion, device, beta=1):
 
     return total_loss / total_samples, total_reconstruction_loss / total_samples, total_kl_loss / total_samples
 
-def train_model(model_type="mlp", seed=42, batch_size=64, image_size=64, latent_dim=64, epochs=10, learning_rate=0.001, data_dir=None, checkpoint_path=None, beta=1):
+def train_model(model_type="mlp", seed=42, batch_size=64, image_size=64, latent_dim=64, epochs=10, learning_rate=0.001, data_dir=None, groups_json_path=None, checkpoint_path=None, beta=1):
     input_shape = (3, image_size, image_size)
     torch.manual_seed(seed)
 
@@ -79,12 +80,32 @@ def train_model(model_type="mlp", seed=42, batch_size=64, image_size=64, latent_
     transforms = transform(image_size=image_size)
     g = torch.Generator().manual_seed(seed)
 
-    full_dataset = CatDataset(
+    splits = load_and_split_groups(
+        groups_json_path=groups_json_path,
         image_dir=data_dir,
+        train_ratio=0.7,
+        val_ratio=0.15,
+        seed=seed
+    )
+
+    train_paths = splits["train"]
+    val_paths = splits["val"]
+    test_paths = splits["test"]
+
+    train_dataset = CatDataset(
+        image_paths=train_paths,
         transform=transforms
     )
-    train_dataset, remaining_dataset = random_split(full_dataset, [0.7, 0.3], generator=g)
-    val_dataset, test_dataset = random_split(remaining_dataset, [0.5, 0.5], generator=g)
+
+    val_dataset = CatDataset(
+        image_paths=val_paths,
+        transform=transforms
+    )
+
+    test_dataset = CatDataset(
+        image_paths=test_paths,
+        transform=transforms
+    )
 
     train_dataloader = DataLoader(
         train_dataset,
@@ -211,14 +232,15 @@ def main():
     batch_size = 64
     image_size = 64
     latent_dim = 64
-    epochs = 10
+    epochs = 1
     learning_rate = 0.001
 
     root = Path(__file__).resolve().parent.parent
-    data_dir = root / "data" / "Cats"
+    data_dir = root / "data" / "cat"
     checkpoint_path = root / "checkpoints"
+    groups_json_path = root / "src" / "datasets" / "groups_cats.json"
 
-    vae, train_losses, val_losses = train_model(model_type, seed, batch_size, image_size, latent_dim, epochs, learning_rate, data_dir, checkpoint_path, beta=1)
+    vae, train_losses, val_losses = train_model(model_type, seed, batch_size, image_size, latent_dim, epochs, learning_rate, data_dir, groups_json_path ,checkpoint_path, beta=1)
 
 
 
