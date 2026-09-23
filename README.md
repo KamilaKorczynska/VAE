@@ -12,7 +12,7 @@ The goal is to build a working VAE from theory, train it, generate new images an
 
 ## Dataset
 The model is trained on the Cat Dataset from Kaggle:
-https://www.kaggle.com/datasets/crawford/cat-dataset?resource=download
+https://www.kaggle.com/datasets/dimensi0n/afhq-512?select=cat
  - The dataset contains cat images, which are resized (64x64 RGB) and used as unsupervised training data.
 
 ## Baseline Model - MLP VAE

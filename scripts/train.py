@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader
 from src.datasets.Cat_dataset import CatDataset, transform
 from src.losses.loss import kl_divergence, calculate_reconstruction_loss
 from src.models.factory import create_model
@@ -156,13 +156,18 @@ def train_model(model_type="mlp", seed=42, batch_size=64, image_size=64, latent_
             "learning_rate": learning_rate,
             "beta": beta,
             "architecture": model_type,
-            "dataset": "Cats",
+            "dataset": "AFHQv2_Cats",
             "epochs": epochs,
             "reconstruction_loss": "MSE"
         },
     )
 
     best_loss = float("inf")
+    best_epoch = 0
+    min_reconstruction = float("inf")
+    min_reconstruction_epoch = None
+    min_kl = float("inf")
+    min_kl_epoch = None
     checkpoint_path = checkpoint_path /  f"{model_type}_mse_epoch{epochs}_latent{latent_dim}_lr{learning_rate}_beta{beta}_{run.id}"
     checkpoint_path.mkdir(parents=True, exist_ok=True)
 
@@ -191,6 +196,15 @@ def train_model(model_type="mlp", seed=42, batch_size=64, image_size=64, latent_
                 "val_loss": val_loss
             }, checkpoint_path / "best_checkpoint.pth")
             best_loss = val_loss
+            best_epoch = epoch + 1
+
+        if val_reconstruction_loss < min_reconstruction:
+            min_reconstruction = val_reconstruction_loss
+            min_reconstruction_epoch = epoch + 1
+
+        if val_kl_loss < min_kl:
+            min_kl = val_kl_loss
+            min_kl_epoch = epoch + 1
 
         print(
             f"Epoch {epoch + 1}/{epochs} | "
@@ -221,18 +235,24 @@ def train_model(model_type="mlp", seed=42, batch_size=64, image_size=64, latent_
         "val_loss": val_losses["loss"][-1]
     }, checkpoint_path / "last_checkpoint.pth")
 
+    run.summary["min_val_reconstruction_loss"] = min_reconstruction
+    run.summary["min_reconstruction_epoch"] = min_reconstruction_epoch
+    run.summary["min_val_kl_loss"] = min_kl
+    run.summary["min_kl_epoch"] = min_kl_epoch
+    run.summary["best_val_loss"] = best_loss
+    run.summary["best_epoch"] = best_epoch
     run.finish()
 
     return vae, train_losses, val_losses
 
 def main():
-    model_type = "cnn_vector"
-    beta = 0.5
+    model_type = "cnn_spatial"
+    beta = 1
     seed = 42
     batch_size = 64
     image_size = 64
     latent_dim = 64
-    epochs = 1
+    epochs = 50
     learning_rate = 0.001
 
     root = Path(__file__).resolve().parent.parent
@@ -240,7 +260,7 @@ def main():
     checkpoint_path = root / "checkpoints"
     groups_json_path = root / "src" / "datasets" / "groups_cats.json"
 
-    vae, train_losses, val_losses = train_model(model_type, seed, batch_size, image_size, latent_dim, epochs, learning_rate, data_dir, groups_json_path ,checkpoint_path, beta=1)
+    vae, train_losses, val_losses = train_model(model_type, seed, batch_size, image_size, latent_dim, epochs, learning_rate, data_dir, groups_json_path ,checkpoint_path, beta=beta)
 
 
 

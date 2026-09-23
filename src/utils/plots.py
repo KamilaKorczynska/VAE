@@ -1,4 +1,6 @@
 import matplotlib.pyplot as plt
+import torch
+from matplotlib.pyplot import subplots
 
 
 def plot(loss):

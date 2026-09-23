@@ -12,22 +12,28 @@ from src.utils.plots import loss_plot
 def main():
     seed = 42
     torch.manual_seed(seed)
-    model_type = "cnn_spatial"
+    model_type = "cnn_vector"
     batch_size = 64
     input_shape = (3, 64, 64)
-    latent_dim = 128
+    latent_dim = 64
     epochs = 500
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     PROJECT_ROOT = Path(__file__).resolve().parent.parent
-    DATA_DIR = PROJECT_ROOT / "data" / "Cats"
+    DATA_DIR = PROJECT_ROOT / "data" / "cat"
 
     transforms = transform(image_size=64)
     g = torch.Generator().manual_seed(seed)
 
+    image_paths = sorted(
+        list(Path(DATA_DIR).glob("*.jpg")) +
+        list(Path(DATA_DIR).glob("*.jpeg")) +
+        list(Path(DATA_DIR).glob("*.png"))
+    )
+
     full_dataset = CatDataset(
-        image_dir=DATA_DIR,
+        image_paths=image_paths,
         transform=transforms
     )
 
@@ -50,7 +56,7 @@ def main():
     reconstruction_losses = []
     kl_losses = []
     for epoch in range(epochs):
-        train_loss, reconstruction_loss, kl_loss = train_epoch(vae, train_dataloader, optimizer, criterion, device, beta=0)
+        train_loss, reconstruction_loss, kl_loss = train_epoch(vae, train_dataloader, optimizer, criterion, device, beta=1)
 
         train_losses.append(train_loss)
         reconstruction_losses.append(reconstruction_loss)
@@ -65,7 +71,7 @@ def main():
     results = analyze_reconstructions(vae, train_dataloader, device, criterion)
     images = torch.stack([result["image"] for result in results])
     x_hats = torch.stack([result["x_hat"] for result in results])
-    save_reconstructions(images, x_hats, PROJECT_ROOT / "results" / "overfitting_test_cnn_spatial_8")
+    save_reconstructions(images, x_hats, PROJECT_ROOT / "results" / "CNN_VAE" / "vector_latent" / "overfitting_test_beta1")
 
     loss_plot(reconstruction_losses, kl_losses, train_losses)
 
