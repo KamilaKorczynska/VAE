@@ -1,7 +1,6 @@
 import torch
 
 
-
 def vae_loss(rec_loss, kl_loss, beta=1):
     return rec_loss + (beta * kl_loss)
 
@@ -17,16 +16,30 @@ def kl_anneling(time):
     return beta
 
 
-def bernoulli_likelihood(pos_weight):
-    criterion = torch.nn.BCEWithLogitsLoss()    #BCEWithLogitsLoss is more stable hen sigmoid + BCELoss
-    return criterion
+def get_reconstruction_criterion(loss_type):
+    if loss_type == "gaussian":
+        return torch.nn.MSELoss(reduction="none")
 
-def gaussian_likelihood(pos_weight):
-    criterion = torch.nn.MSELoss()
-    return criterion
+    elif loss_type == "laplace":
+        return torch.nn.L1Loss(reduction="none")
 
-def calculate_reconstruction_loss(x_hat, x, criterion):
+    elif loss_type == "bernoulli":
+        return torch.nn.BCELoss(reduction="none")
+
+    else:
+        raise ValueError(f"Unknown reconstruction loss: {loss_type}")
+
+
+def calculate_reconstruction_loss(x_hat, x, criterion, loss_type="gaussian", b=1.0):
     loss = criterion(x_hat, x)
-    loss = 0.5 * loss.sum(dim=(1,2,3))
-    loss = loss.mean()
-    return loss
+
+    if loss_type == "gaussian":
+        loss = 0.5 * loss.sum(dim=(1, 2, 3))
+
+    elif loss_type == "laplace":
+        loss = (1 / b) * loss.sum(dim=(1, 2, 3))
+
+    elif loss_type == "bernoulli":
+        loss = loss.sum(dim=(1, 2, 3))
+
+    return loss.mean()
