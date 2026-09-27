@@ -6,7 +6,6 @@ from src.datasets.Cat_dataset import CatDataset, transform
 from torch.utils.data import DataLoader, random_split
 from src.utils.Dinov2.split_dataset import load_and_split_groups
 
-
 @torch.no_grad()
 def muss(model, val_loader):
     model.eval()
@@ -19,6 +18,19 @@ def muss(model, val_loader):
     mus = torch.cat(mus, dim=0)
 
     return mus
+
+
+def plot_visualization_latent2(model, dataloader, path=""):
+    mu = muss(model, dataloader)
+
+    plt.scatter(mu[:, 0], mu[:, 1], alpha=0.7)
+    plt.xlim(-8, 8)
+    plt.ylim(-8, 8)
+
+    plt.tight_layout()
+    plt.savefig("{path}/latent2_visualization.png")
+    plt.show()
+
 
 seed = 42
 batch_size = 64

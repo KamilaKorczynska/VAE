@@ -1,13 +1,11 @@
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader
-from src.datasets.Cat_dataset import CatDataset, transform
 from src.losses.loss import kl_divergence, calculate_reconstruction_loss
 from src.models.factory import create_model
 from pathlib import Path
 import wandb
 from src.utils.constants import WANDB_ENTITY, WANDB_PROJECT
-from src.utils.Dinov2.split_dataset import load_and_split_groups
+from src.datasets.utils import get_train_val_test_datatloader
 
 
 def train_epoch(model, loader, optimizer, criterion, device, beta=1):
@@ -64,67 +62,19 @@ def evaluate(model, loader, criterion, device, beta=1):
 
     return total_loss / total_samples, total_reconstruction_loss / total_samples, total_kl_loss / total_samples
 
-def train_model(model_type="mlp", seed=42, batch_size=64, image_size=64, latent_dim=64, epochs=10, learning_rate=0.001, data_dir=None, groups_json_path=None, checkpoint_path=None, beta=1):
+def train_model(model_type="mlp", seed=42, batch_size=64, image_size=64, latent_dim=64, epochs=10, learning_rate=0.001, data_dir=None, groups_json_path=None, checkpoint_path=None, beta=1, kl_annealing_epoch=None):
     input_shape = (3, image_size, image_size)
     torch.manual_seed(seed)
 
     project_root = Path(__file__).resolve().parent.parent
     if data_dir is None:
-        data_dir = project_root / "data" / "Cats"
+        data_dir = project_root / "data" / "cat"
     if checkpoint_path is None:
         checkpoint_path = project_root / "checkpoints"
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    #dataloaders
-    transforms = transform(image_size=image_size)
-    g = torch.Generator().manual_seed(seed)
-
-    splits = load_and_split_groups(
-        groups_json_path=groups_json_path,
-        image_dir=data_dir,
-        train_ratio=0.7,
-        val_ratio=0.15,
-        seed=seed
-    )
-
-    train_paths = splits["train"]
-    val_paths = splits["val"]
-    test_paths = splits["test"]
-
-    train_dataset = CatDataset(
-        image_paths=train_paths,
-        transform=transforms
-    )
-
-    val_dataset = CatDataset(
-        image_paths=val_paths,
-        transform=transforms
-    )
-
-    test_dataset = CatDataset(
-        image_paths=test_paths,
-        transform=transforms
-    )
-
-    train_dataloader = DataLoader(
-        train_dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        generator=g
-    )
-    val_dataloader = DataLoader(
-        val_dataset,
-        batch_size=batch_size,
-        shuffle=False,
-        generator=g
-    )
-    test_dataloader = DataLoader(
-        test_dataset,
-        batch_size=batch_size,
-        shuffle=False,
-        generator=g
-    )
+    train_dataloader, val_dataloader, test_dataloader = get_train_val_test_datatloader(seed, image_size, batch_size, groups_json_path, data_dir)
 
     #model
     vae = create_model(model_type, input_shape, latent_dim)
@@ -158,7 +108,8 @@ def train_model(model_type="mlp", seed=42, batch_size=64, image_size=64, latent_
             "architecture": model_type,
             "dataset": "AFHQv2_Cats",
             "epochs": epochs,
-            "reconstruction_loss": "MSE"
+            "reconstruction_loss": "MSE",
+            "kl-annealing": kl_annealing_epoch
         },
     )
 
@@ -172,6 +123,9 @@ def train_model(model_type="mlp", seed=42, batch_size=64, image_size=64, latent_
     checkpoint_path.mkdir(parents=True, exist_ok=True)
 
     for epoch in range(epochs):
+        if kl_annealing_epoch > 0:
+            beta = min(1.0, (epoch + 1) / kl_annealing_epoch)
+
         train_loss, train_reconstruction_loss, train_kl_loss = train_epoch(vae, train_dataloader, optimizer, criterion, device, beta)
         val_loss, val_reconstruction_loss, val_kl_loss = evaluate(vae, val_dataloader, criterion, device, beta)
 
@@ -246,21 +200,22 @@ def train_model(model_type="mlp", seed=42, batch_size=64, image_size=64, latent_
     return vae, train_losses, val_losses
 
 def main():
-    model_type = "cnn_spatial"
+    model_type = "cnn_vector"
     beta = 1
     seed = 42
     batch_size = 64
     image_size = 64
-    latent_dim = 64
+    latent_dim = 2
     epochs = 50
     learning_rate = 0.001
+    kl_annealing_epoch = 15
 
     root = Path(__file__).resolve().parent.parent
     data_dir = root / "data" / "cat"
     checkpoint_path = root / "checkpoints"
     groups_json_path = root / "src" / "datasets" / "groups_cats.json"
 
-    vae, train_losses, val_losses = train_model(model_type, seed, batch_size, image_size, latent_dim, epochs, learning_rate, data_dir, groups_json_path ,checkpoint_path, beta=beta)
+    vae, train_losses, val_losses = train_model(model_type, seed, batch_size, image_size, latent_dim, epochs, learning_rate, data_dir, groups_json_path, checkpoint_path, beta=beta, kl_annealing_epoch=kl_annealing_epoch)
 
 
 

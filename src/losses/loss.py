@@ -11,8 +11,10 @@ def kl_divergence(logvar, mu):
     kl = kl.sum(dim=1)
     return kl.mean()
 
-def kl_anneling():
-    raise NotImplemented
+def kl_anneling(time):
+    beta = 1 / time
+
+    return beta
 
 
 def bernoulli_likelihood(pos_weight):
