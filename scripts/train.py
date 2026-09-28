@@ -1,5 +1,7 @@
 import torch
-from src.losses.loss import kl_divergence, calculate_reconstruction_loss, get_reconstruction_criterion
+
+from src.losses.ReconstructionLoss import GaussianLoss, LaplaceLoss, BernoulliLoss
+from src.losses.loss import kl_divergence
 from src.models.factory import create_model
 from pathlib import Path
 import wandb
@@ -7,8 +9,9 @@ from src.utils.constants import WANDB_ENTITY, WANDB_PROJECT
 from src.datasets.utils import get_train_val_test_datatloader
 
 
-def train_epoch(model, loader, optimizer, criterion, device, beta=1, reconstruction_type="gaussian"):
+def train_epoch(model, loader, optimizer, device, reconstruction_loss_fn, beta=1):
     model.train()
+    reconstruction_loss_fn.train()
     total_loss = 0.0
     total_reconstruction_loss = 0.0
     total_kl_loss = 0.0
@@ -21,7 +24,7 @@ def train_epoch(model, loader, optimizer, criterion, device, beta=1, reconstruct
         optimizer.zero_grad()
         mu, logvar, x_hat = model(images)
 
-        reconstruction_loss = calculate_reconstruction_loss(x_hat, images, criterion, reconstruction_type)
+        reconstruction_loss = reconstruction_loss_fn(x_hat, images)
 
         kl_loss = kl_divergence(logvar, mu)
         vae_loss = reconstruction_loss + (beta * kl_loss)
@@ -37,8 +40,9 @@ def train_epoch(model, loader, optimizer, criterion, device, beta=1, reconstruct
     return total_loss / total_samples, total_reconstruction_loss / total_samples, total_kl_loss / total_samples
 
 @torch.no_grad()
-def evaluate(model, loader, criterion, device, beta=1, reconstruction_type="gaussian"):
+def evaluate(model, loader, device, reconstruction_loss_fn, beta=1):
     model.eval()
+    reconstruction_loss_fn.eval()
     total_loss = 0.0
     total_reconstruction_loss = 0.0
     total_kl_loss = 0.0
@@ -49,7 +53,7 @@ def evaluate(model, loader, criterion, device, beta=1, reconstruction_type="gaus
 
         mu, logvar, x_hat = model(images)
 
-        reconstruction_loss = calculate_reconstruction_loss(x_hat, images, criterion, reconstruction_type)
+        reconstruction_loss = reconstruction_loss_fn(x_hat, images)
 
         kl_loss = kl_divergence(logvar, mu)
         vae_loss = reconstruction_loss + (beta * kl_loss)
@@ -61,7 +65,7 @@ def evaluate(model, loader, criterion, device, beta=1, reconstruction_type="gaus
 
     return total_loss / total_samples, total_reconstruction_loss / total_samples, total_kl_loss / total_samples
 
-def train_model(model_type="mlp", seed=42, batch_size=64, image_size=64, latent_dim=64, epochs=10, learning_rate=0.001, data_dir=None, groups_json_path=None, checkpoint_path=None, beta=1, kl_annealing_epoch=0, reconstruction_type="gaussian"):
+def train_model(model_type="mlp", seed=42, batch_size=64, image_size=64, latent_dim=64, epochs=10, learning_rate=0.001, data_dir=None, groups_json_path=None, checkpoint_path=None, beta=1, kl_annealing_epoch=0, reconstruction_loss_fn=None):
     input_shape = (3, image_size, image_size)
     torch.manual_seed(seed)
 
@@ -79,7 +83,11 @@ def train_model(model_type="mlp", seed=42, batch_size=64, image_size=64, latent_
     vae = create_model(model_type, input_shape, latent_dim)
     vae = vae.to(device)
 
-    criterion = get_reconstruction_criterion(reconstruction_type)
+    if reconstruction_loss_fn is None:
+        reconstruction_loss_fn = GaussianLoss()
+
+    reconstruction_loss_fn = reconstruction_loss_fn.to(device)
+
     optimizer = torch.optim.Adam(vae.parameters(), lr=learning_rate)
 
 
@@ -94,6 +102,8 @@ def train_model(model_type="mlp", seed=42, batch_size=64, image_size=64, latent_
         "loss": []
     }
 
+    reconstruction_name = reconstruction_loss_fn.__class__.__name__
+
     run = wandb.init(
         entity=WANDB_ENTITY,
         project=WANDB_PROJECT,
@@ -107,8 +117,9 @@ def train_model(model_type="mlp", seed=42, batch_size=64, image_size=64, latent_
             "architecture": model_type,
             "dataset": "AFHQv2_Cats",
             "epochs": epochs,
-            "reconstruction_loss": reconstruction_type,
-            "kl-annealing": kl_annealing_epoch
+            "reconstruction_loss": reconstruction_name,
+            "kl-annealing": kl_annealing_epoch,
+            "b": getattr(reconstruction_loss_fn, "b", None)
         },
     )
 
@@ -118,7 +129,7 @@ def train_model(model_type="mlp", seed=42, batch_size=64, image_size=64, latent_
     min_reconstruction_epoch = None
     min_kl = float("inf")
     min_kl_epoch = None
-    checkpoint_path = checkpoint_path /  f"{model_type}_{reconstruction_type}_epoch{epochs}_latent{latent_dim}_lr{learning_rate}_beta{beta}_{run.id}"
+    checkpoint_path = checkpoint_path /  f"{model_type}_{reconstruction_name}_epoch{epochs}_latent{latent_dim}_lr{learning_rate}_beta{beta}_{run.id}"
     checkpoint_path.mkdir(parents=True, exist_ok=True)
     current_beta = beta
 
@@ -127,8 +138,8 @@ def train_model(model_type="mlp", seed=42, batch_size=64, image_size=64, latent_
         if kl_annealing_epoch > 0:
             current_beta = beta * min(1.0,(epoch + 1) / kl_annealing_epoch)
 
-        train_loss, train_reconstruction_loss, train_kl_loss = train_epoch(vae, train_dataloader, optimizer, criterion, device, current_beta, reconstruction_type)
-        val_loss, val_reconstruction_loss, val_kl_loss = evaluate(vae, val_dataloader, criterion, device, current_beta, reconstruction_type)
+        train_loss, train_reconstruction_loss, train_kl_loss = train_epoch(vae, train_dataloader, optimizer, device, reconstruction_loss_fn, current_beta)
+        val_loss, val_reconstruction_loss, val_kl_loss = evaluate(vae, val_dataloader, device, reconstruction_loss_fn, current_beta)
 
         train_losses["loss"].append(train_loss)
         train_losses["reconstruction_loss"].append(train_reconstruction_loss)
@@ -144,7 +155,12 @@ def train_model(model_type="mlp", seed=42, batch_size=64, image_size=64, latent_
                 "input_shape": input_shape,
                 "latent_dim": latent_dim,
                 "learning_rate": learning_rate,
-                "beta": current_beta,
+                "beta": beta,
+                "current_beta": current_beta,
+                "kl_annealing_epoch": kl_annealing_epoch,
+
+                "reconstruction_loss": reconstruction_name,
+                "reconstruction_b": getattr(reconstruction_loss_fn, "b", None),
 
                 "model_state_dict": vae.state_dict(),
                 "optimizer_state_dict": optimizer.state_dict(),
@@ -183,7 +199,12 @@ def train_model(model_type="mlp", seed=42, batch_size=64, image_size=64, latent_
         "input_shape": input_shape,
         "latent_dim": latent_dim,
         "learning_rate": learning_rate,
-        "beta": current_beta,
+        "beta": beta,
+        "current_beta": current_beta,
+        "kl_annealing_epoch": kl_annealing_epoch,
+
+        "reconstruction_loss": reconstruction_name,
+        "reconstruction_b": getattr(reconstruction_loss_fn, "b", None),
 
         "model_state_dict": vae.state_dict(),
         "optimizer_state_dict": optimizer.state_dict(),
@@ -207,17 +228,17 @@ def main():
     batch_size = 64
     image_size = 64
     latent_dim = 64
-    epochs = 50
+    epochs = 1
     learning_rate = 0.001
     kl_annealing_epoch = 15
-    reconstruction_type = "laplace"
+    reconstruction_loss_fn = GaussianLoss()
 
     root = Path(__file__).resolve().parent.parent
     data_dir = root / "data" / "cat"
     checkpoint_path = root / "checkpoints"
     groups_json_path = root / "src" / "datasets" / "groups_cats.json"
 
-    vae, train_losses, val_losses = train_model(model_type, seed, batch_size, image_size, latent_dim, epochs, learning_rate, data_dir, groups_json_path, checkpoint_path, beta=beta, kl_annealing_epoch=kl_annealing_epoch, reconstruction_type=reconstruction_type)
+    vae, train_losses, val_losses = train_model(model_type, seed, batch_size, image_size, latent_dim, epochs, learning_rate, data_dir, groups_json_path, checkpoint_path, beta=beta, kl_annealing_epoch=kl_annealing_epoch, reconstruction_loss_fn=reconstruction_loss_fn)
 
 
 
