@@ -12,9 +12,20 @@ def get_reconstructions(model, loader, device):
 
     return images.cpu(), x_hat.cpu()
 
+@torch.no_grad()
+def get_reconstructions_without_epsilon(model, loader, device="cpu"):
+    model.eval()
+
+    images = next(iter(loader))
+    images = images.to(device)
+
+    mu, logvar =model.encoder(images)
+    x_hats = model.decoder(mu)  #deterministic reconstruction: z = mu
+
+    return images.cpu(), x_hats.cpu()
 
 @torch.no_grad()
-def analyze_reconstructions(model, loader, device, criterion):
+def analyze_reconstructions_without_epsilon(model, loader, device, criterion):
     model.eval()
     results = []
 
@@ -24,8 +35,7 @@ def analyze_reconstructions(model, loader, device, criterion):
         mu, logvar = model.encoder(images)
         x_hats = model.decoder(mu)  #deterministic reconstruction: z = mu
 
-        reconstruction_losses = criterion(x_hats, images)
-        reconstruction_losses = 0.5 * reconstruction_losses.sum(dim=(1, 2, 3))
+        reconstruction_losses = criterion.per_sample(x_hats, images)
 
         for image, x_hat, reconstruction_loss in zip(images, x_hats, reconstruction_losses):
             results.append({

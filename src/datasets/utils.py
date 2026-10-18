@@ -86,7 +86,8 @@ def val_images_RQ2():
         "1903.png",
         "1980.png",
         "4132.png",
-        "3304.png"
+        "3304.png",
+        "4324.png"
     ]
 
     return comparison_images

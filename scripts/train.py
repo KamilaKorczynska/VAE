@@ -1,6 +1,6 @@
 import torch
 
-from src.losses.ReconstructionLoss import GaussianLoss, LaplaceLoss, BernoulliLoss
+from src.losses.ReconstructionLoss import GaussianLoss, LaplaceLoss, BernoulliLoss, CombinedReconstructionLoss, SSIMLoss
 from src.losses.loss import kl_divergence
 from src.models.factory import create_model
 from pathlib import Path
@@ -23,6 +23,37 @@ def train_epoch(model, loader, optimizer, device, reconstruction_loss_fn, beta=1
 
         optimizer.zero_grad()
         mu, logvar, x_hat = model(images)
+
+        reconstruction_loss = reconstruction_loss_fn(x_hat, images)
+
+        kl_loss = kl_divergence(logvar, mu)
+        vae_loss = reconstruction_loss + (beta * kl_loss)
+
+        vae_loss.backward()
+        optimizer.step()
+
+        total_loss += vae_loss.item() * images.size(0)
+        total_reconstruction_loss += reconstruction_loss.item() * images.size(0)
+        total_kl_loss += kl_loss.item() * images.size(0)
+        total_samples += images.size(0)
+
+    return total_loss / total_samples, total_reconstruction_loss / total_samples, total_kl_loss / total_samples
+
+def train_epoch_without_epsilon(model, loader, optimizer, device, reconstruction_loss_fn, beta=1):
+    model.train()
+    reconstruction_loss_fn.train()
+    total_loss = 0.0
+    total_reconstruction_loss = 0.0
+    total_kl_loss = 0.0
+    total_samples = 0
+
+
+    for images in loader:
+        images = images.to(device)
+
+        optimizer.zero_grad()
+        mu, logvar = model.encoder(images)
+        x_hat = model.decoder(mu)
 
         reconstruction_loss = reconstruction_loss_fn(x_hat, images)
 
@@ -65,6 +96,7 @@ def evaluate(model, loader, device, reconstruction_loss_fn, beta=1):
 
     return total_loss / total_samples, total_reconstruction_loss / total_samples, total_kl_loss / total_samples
 
+
 def train_model(model_type="mlp", seed=42, batch_size=64, image_size=64, latent_dim=64, epochs=10, learning_rate=0.001, data_dir=None, groups_json_path=None, checkpoint_path=None, beta=1, kl_annealing_epoch=0, reconstruction_loss_fn=None):
     input_shape = (3, image_size, image_size)
     torch.manual_seed(seed)
@@ -102,7 +134,7 @@ def train_model(model_type="mlp", seed=42, batch_size=64, image_size=64, latent_
         "loss": []
     }
 
-    reconstruction_name = reconstruction_loss_fn.__class__.__name__
+    reconstruction_name = reconstruction_loss_fn.name
 
     run = wandb.init(
         entity=WANDB_ENTITY,
@@ -129,7 +161,12 @@ def train_model(model_type="mlp", seed=42, batch_size=64, image_size=64, latent_
     min_reconstruction_epoch = None
     min_kl = float("inf")
     min_kl_epoch = None
-    checkpoint_path = checkpoint_path /  f"{model_type}_{reconstruction_name}_epoch{epochs}_latent{latent_dim}_lr{learning_rate}_beta{beta}_{run.id}"
+
+    if kl_annealing_epoch > 0:
+        checkpoint_path = checkpoint_path / f"{model_type}_{reconstruction_name}_epoch{epochs}_latent{latent_dim}_lr{learning_rate}_kl_beta{beta}_{run.id}"
+
+    else:
+        checkpoint_path = checkpoint_path /  f"{model_type}_{reconstruction_name}_epoch{epochs}_latent{latent_dim}_lr{learning_rate}_beta{beta}_{run.id}"
     checkpoint_path.mkdir(parents=True, exist_ok=True)
     current_beta = beta
 
@@ -228,10 +265,16 @@ def main():
     batch_size = 64
     image_size = 64
     latent_dim = 64
-    epochs = 1
+    epochs = 50
     learning_rate = 0.001
     kl_annealing_epoch = 15
-    reconstruction_loss_fn = GaussianLoss()
+    #reconstruction_loss_fn = GaussianLoss()
+    reconstruction_loss_fn = CombinedReconstructionLoss(
+        base_loss=GaussianLoss(),
+        additional_losses=[
+            (SSIMLoss(), 300),
+        ]
+    )
 
     root = Path(__file__).resolve().parent.parent
     data_dir = root / "data" / "cat"
