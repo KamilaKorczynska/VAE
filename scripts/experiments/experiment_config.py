@@ -23,8 +23,10 @@ class ExperimentConfig:
     beta: float = 1.0
     kl_annealing_epochs: int = 0
 
-    stochastic_trains: bool = True
+    stochastic_train: bool = True
+    stochastic_reconstruction: bool = True
 
-    dataset: str = "full"
+    train_dataset: str = "full"
+    val_dataset: str = "full"
 
     reconstruction_loss: ReconstructionLoss = field(default_factory=GaussianLoss)

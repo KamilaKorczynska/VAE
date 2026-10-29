@@ -1,7 +1,7 @@
 import torch.cuda
 from torch.utils.data import DataLoader
 from src.datasets.Cat_dataset import CatDataset, transform
-from src.datasets.utils import get_train_val_test_datatloader
+from src.datasets.utils import get_train_val_test_datatloader, val_images_RQ2, get_dataset_RQ2
 from src.losses.loss import kl_divergence
 from src.models.factory import create_model
 from src.utils.kl_visualization import kl_per_dimension
@@ -35,7 +35,7 @@ class VAEExperiment:
         self._prepare_model()
 
     def _prepare_dataset(self):
-        if self.config.dataset == "full":
+        if self.config.train_dataset == "full":
             data_dir = self.root / "data" / "cat"
             groups_json_path = (self.root / "src" / "datasets" / "groups_cats.json")
 
@@ -47,7 +47,15 @@ class VAEExperiment:
                                                                         data_dir
                                                                         )
 
-        elif self.config.dataset == "overfitting":
+            if self.config.val_dataset == "RQ2":
+                dataset = get_dataset_RQ2(data_dir, self.config.image_size)
+                self.val_loader = DataLoader(
+                    dataset,
+                    batch_size=self.config.batch_size,
+                    shuffle=False
+                )
+
+        elif self.config.train_dataset == "overfitting":
             data_dir = (
                     self.root
                     / "data"
@@ -78,6 +86,14 @@ class VAEExperiment:
                 batch_size=self.config.batch_size,
                 shuffle=False
             )
+
+            if self.config.val_dataset == "RQ2":
+                dataset = get_dataset_RQ2()
+                self.val_loader = DataLoader(
+                    dataset,
+                    batch_size=self.config.batch_size,
+                    shuffle=False
+                )
 
     def _forward(self, images, stochastic):
 
@@ -111,7 +127,7 @@ class VAEExperiment:
         total_kl = 0
         total_samples = 0
 
-        for images in loader:
+        for i, images in enumerate(loader):
 
             images = images.to(self.device)
 
@@ -120,12 +136,12 @@ class VAEExperiment:
 
             with torch.set_grad_enabled(training):
 
-                mu, logvar, x_hat = self._forward(
-                                        images,
-                                        stochastic=self.config.stochastic_train
-                                        if training
-                                        else self.config.stochastic_reconstruction
-                                        )
+                if training:
+                    stochastic = self.config.stochastic_train
+                else:
+                    stochastic = False
+
+                mu, logvar, x_hat = self._forward(images, stochastic=stochastic)
 
                 rec_loss = self.config.reconstruction_loss(x_hat, images)
 
@@ -153,8 +169,12 @@ class VAEExperiment:
         }
 
     def train(self):
+
+        print(self.config.name)
         for epoch in range(self.config.epochs):
             beta = self._get_beta(epoch)
+
+            print(f"epoch: {epoch+1}/{self.config.epochs}")
 
             train_results = self._run_epoch(self.train_loader, training=True, beta=beta)
             val_results = self._run_epoch(self.val_loader, training=False, beta=beta)

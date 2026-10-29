@@ -91,3 +91,15 @@ def val_images_RQ2():
     ]
 
     return comparison_images
+
+def get_dataset_RQ2(data_dir, image_size):
+    images_paths = [data_dir / filename for filename in val_images_RQ2()]
+
+    transforms = transform(image_size=image_size)
+
+    dataset = CatDataset(
+        image_paths=images_paths,
+        transform=transforms
+    )
+
+    return dataset
